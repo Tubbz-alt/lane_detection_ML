@@ -29,6 +29,8 @@ from lanenet_model import lanenet_merge_model
 from lanenet_model import lanenet_cluster
 from lanenet_model import lanenet_postprocess
 from config import global_config
+import numpy as np
+import scipy.misc
 
 CFG = global_config.cfg
 VGG_MEAN = [103.939, 116.779, 123.68]
@@ -78,7 +80,8 @@ def test_lanenet(image_path, weights_path, use_gpu):
     t_start = time.time()
     image = cv2.imread(image_path, cv2.IMREAD_COLOR)
     image_vis = image
-    image = cv2.resize(image, (512, 256), interpolation=cv2.INTER_LINEAR)
+    image = cv2.resize(image, (512, 256))
+    orig = image
     image = image - VGG_MEAN
     log.info('图像读取完毕, 耗时: {:.5f}s'.format(time.time() - t_start))
 
@@ -118,19 +121,41 @@ def test_lanenet(image_path, weights_path, use_gpu):
         mask_image = cluster.get_lane_mask(binary_seg_ret=binary_seg_image[0],
                                            instance_seg_ret=instance_seg_image[0])
 
-        for i in range(4):
-            instance_seg_image[0][:, :, i] = minmax_scale(instance_seg_image[0][:, :, i])
-        embedding_image = np.array(instance_seg_image[0], np.uint8)
+        # for i in range(4):
+        #     instance_seg_image[0][:, :, i] = minmax_scale(instance_seg_image[0][:, :, i])
+        # embedding_image = np.array(instance_seg_image[0], np.uint8)
 
-        plt.figure('mask_image')
-        plt.imshow(mask_image[:, :, (2, 1, 0)])
-        plt.figure('src_image')
-        plt.imshow(image_vis[:, :, (2, 1, 0)])
-        plt.figure('instance_image')
-        plt.imshow(embedding_image[:, :, (2, 1, 0)])
-        plt.figure('binary_image')
-        plt.imshow(binary_seg_image[0] * 255, cmap='gray')
-        plt.show()
+        # plt.figure('mask_image')
+        # plt.imshow(mask_image[:, :, (2, 1, 0)])
+        splits = image_path.split("/")
+        fileName = splits[-1]
+        fileName = fileName.split(".")[0]
+        print fileName[0:-4]
+        path = ""
+        for i in range(len(image_path.split("/")) - 1):
+            path += str(splits[i]) + "/"
+        print path
+        np.save(os.path.join(path, fileName + "_output.npy"), mask_image[:, :, (2, 1, 0)])
+
+        # plt.figure('src_image')
+        # plt.imshow(image_vis[:, :, (2, 1, 0)])
+        # plt.figure('instance_image')
+        # plt.imshow(embedding_image[:, :, (2, 1, 0)])
+        # plt.figure('binary_image')
+        # plt.imshow(binary_seg_image[0] * 255, cmap='gray')
+        #plt.show()
+
+        orig = cv2.resize(image_vis[:, :, (2, 1, 0)], (512, 256))
+        binary = binary_seg_image[0] * 255
+
+        for x in range(orig.shape[0]):
+            for y in range(orig.shape[1]):
+                if binary[x][y] > 0:
+                    orig[x][y] = (0,0,255)
+        # plt.figure('output')
+        # plt.imshow(orig)
+        scipy.misc.imsave(os.path.join(path, fileName + "_output.jpg"), orig)
+        # plt.show()
 
     sess.close()
 
